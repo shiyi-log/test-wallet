@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Prepare TRON testnet faucet claims for the wallets in testnet-wallets.json.
+"""为 testnet-wallets.json 中的钱包准备 TRON 测试币领取清单。
 
-Nile and Shasta currently expose web-based faucets. This script validates the
-wallet list, checks balances through the public RPC endpoints, and opens the
-official faucet pages with a claim manifest. It never sends private keys.
+Nile 和 Shasta 当前使用网页水龙头。本脚本会校验钱包、通过公开 RPC
+查询余额，并生成领取清单；不会发送私钥。
 """
 
 from __future__ import annotations
@@ -44,7 +43,7 @@ def get_balance(address: str, rpc_url: str) -> int | None:
     try:
         with urlopen(request, timeout=15) as response:
             return int(json.load(response).get("balance", 0))
-    except Exception as exc:  # RPC availability should not block faucet use.
+    except Exception as exc:  # RPC 暂时不可用时不阻止继续准备领取清单。
         print(f"warning: balance lookup failed for {address}: {exc}", file=sys.stderr)
         return None
 
@@ -52,17 +51,17 @@ def get_balance(address: str, rpc_url: str) -> int | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--network", choices=FAUCETS, action="append", default=None,
-                        help="network(s) to prepare; defaults to both")
+                        help="要准备的网络，默认同时处理两个网络")
     parser.add_argument("--wallet-file", type=Path, default=Path("testnet-wallets.json"))
     parser.add_argument("--manifest", type=Path, default=Path("faucet-claims.json"))
     parser.add_argument("--open-browser", action="store_true",
-                        help="open each official faucet page")
+                        help="打开每个官方水龙头页面")
     args = parser.parse_args()
     networks = args.network or list(FAUCETS)
     document = json.loads(args.wallet_file.read_text(encoding="utf-8"))
     claims = []
     for wallet in document["wallets"]:
-        # Re-derive the address so a corrupted or edited JSON file is rejected.
+        # 重新推导地址，拒绝损坏或被修改过的钱包 JSON 文件。
         key = PrivateKey(bytes.fromhex(wallet["private_key"]))
         address = key.public_key.to_base58check_address()
         if address != wallet["address"]:
